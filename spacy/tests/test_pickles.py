@@ -7,6 +7,7 @@ import srsly
 from spacy.strings import StringStore
 from spacy.vocab import Vocab
 from spacy.attrs import NORM
+from spacy.kb import KnowledgeBase
 
 
 @pytest.mark.parametrize("text1,text2", [("hello", "bye")])
@@ -38,3 +39,23 @@ def test_pickle_vocab(text1, text2):
     assert unpickled[text1].norm != unpickled[text2].norm
     assert unpickled.vectors is not None
     assert list(vocab["dog"].vector) == [1.0, 1.0, 1.0, 1.0, 1.0]
+
+@pytest.mark.parametrize("text1,text2", [("dog", "cat")])
+def test_pickle_kb(text1, text2):
+    vocab = Vocab(lex_attr_getters={int(NORM): lambda string: string[:-1]})
+    vocab.set_vector("dog", numpy.ones((5,), dtype="f"))
+    lex1 = vocab[text1]
+    lex2 = vocab[text2]
+    assert lex1.norm_ == text1[:-1]
+    assert lex2.norm_ == text2[:-1]
+    kb = KnowledgeBase(vocab, 32)
+    data = srsly.pickle_dumps(kb)
+    unpickled = srsly.pickle_loads(data)
+    assert unpickled.vocab[text1].orth == lex1.orth
+    assert unpickled.vocab[text2].orth == lex2.orth
+    assert unpickled.vocab[text1].norm == lex1.norm
+    assert unpickled.vocab[text2].norm == lex2.norm
+    assert unpickled.vocab[text1].norm != unpickled.vocab[text2].norm
+    assert unpickled.vocab.vectors is not None
+    assert unpickled.entity_vector_length == 32
+    assert list(unpickled.vocab["dog"].vector) == [1.0, 1.0, 1.0, 1.0, 1.0]
